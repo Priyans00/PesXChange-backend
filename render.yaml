@@ -1,0 +1,29 @@
+services:
+  - type: web
+    name: pesxchange-backend
+    env: go
+    buildCommand: go build -o main .
+    startCommand: ./main
+    envVars:
+      - key: PORT
+        value: 8080
+      - key: ENVIRONMENT
+        value: production
+      - key: SUPABASE_URL
+        fromDatabase:
+          name: pesxchange-db
+          property: connectionString
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "https://pesxchange.vercel.app,https://www.pesxchange.com"
+      - key: PESU_AUTH_URL
+        value: "https://pesu-auth.onrender.com"
+      - key: RATE_LIMIT_MAX
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: "3600"

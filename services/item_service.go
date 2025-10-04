@@ -83,7 +83,7 @@ func (s *ItemService) processItemImages(items []models.Item) {
 			continue
 		}
 		
-		// For performance, just set first 3 images max and convert large base64 to URLs
+		// For performance, just set first 3 images max
 		maxImages := len(items[i].Images)
 		if maxImages > 3 {
 			maxImages = 3 // Limit to 3 images for listing performance
@@ -92,15 +92,20 @@ func (s *ItemService) processItemImages(items []models.Item) {
 		processedImages := make([]string, 0, maxImages)
 		for j := 0; j < maxImages; j++ {
 			img := items[i].Images[j]
-			// Quick length check for base64 images
+			
+			// If it's a base64 image, it should have been converted to Supabase Storage URL
+			// during item creation. If we still find base64, it's legacy data that needs migration
 			if len(img) > 500 && strings.HasPrefix(img, "data:image/") {
-				// Replace large base64 with URL
-				processedImages = append(processedImages, fmt.Sprintf("/api/items/%s/image/%d", items[i].ID, j))
+				// Log for migration - in production you'd want to convert these
+				fmt.Printf("Found legacy base64 image for item %s, index %d - needs migration\n", items[i].ID, j)
+				// For now, skip large base64 images to prevent huge responses
+				continue
 			} else {
-				// Keep small images and URLs as is
+				// Keep URLs and small images as is
 				processedImages = append(processedImages, img)
 			}
 		}
+		
 		items[i].Images = processedImages
 		items[i].ImageURLs = processedImages
 	}

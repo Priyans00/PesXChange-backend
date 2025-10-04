@@ -40,35 +40,41 @@ func (h *MessageHandler) SendMessage(c *fiber.Ctx) error {
 		})
 	}
 	
-	// TODO: Get sender ID from JWT token
-	senderID := c.Get("X-User-ID") // Temporary - should come from auth middleware
-	if senderID == "" {
+	// Get authenticated user ID from JWT middleware
+	senderID := c.Locals("userID")
+	if senderID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
 			Success: false,
 			Error:   "Authentication required",
 		})
 	}
 	
+	userID := senderID.(string)
+	
 	// Prevent self-messaging
-	if senderID == req.ReceiverID {
+	if userID == req.ReceiverID {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
 			Success: false,
 			Error:   "Cannot send message to yourself",
 		})
 	}
 	
-	message, err := h.messageService.SendMessage(c.Context(), senderID, &req)
+	message, err := h.messageService.SendMessage(c.Context(), userID, &req)
 	if err != nil {
 		status := fiber.StatusInternalServerError
+		errorMsg := "Failed to send message"
+		
 		if err.Error() == "receiver not found" || err.Error() == "item not found" {
 			status = fiber.StatusNotFound
+			errorMsg = err.Error()
 		} else if err.Error() == "item is not active" {
 			status = fiber.StatusBadRequest
+			errorMsg = err.Error()
 		}
 		
 		return c.Status(status).JSON(models.APIResponse{
 			Success: false,
-			Error:   err.Error(),
+			Error:   errorMsg,
 		})
 	}
 	
@@ -81,14 +87,16 @@ func (h *MessageHandler) SendMessage(c *fiber.Ctx) error {
 
 // GetMessages handles retrieving messages between users for an item
 func (h *MessageHandler) GetMessages(c *fiber.Ctx) error {
-	// TODO: Get user ID from JWT token
-	userID := c.Get("X-User-ID") // Temporary - should come from auth middleware
-	if userID == "" {
+	// Get authenticated user ID from JWT middleware
+	authenticatedUserID := c.Locals("userID")
+	if authenticatedUserID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
 			Success: false,
 			Error:   "Authentication required",
 		})
 	}
+	
+	userID := authenticatedUserID.(string)
 	
 	otherUserID := c.Query("other_user_id")
 	itemID := c.Query("item_id")
@@ -123,14 +131,16 @@ func (h *MessageHandler) GetMessages(c *fiber.Ctx) error {
 
 // GetActiveChats handles retrieving all active conversations for a user
 func (h *MessageHandler) GetActiveChats(c *fiber.Ctx) error {
-	// TODO: Get user ID from JWT token
-	userID := c.Get("X-User-ID") // Temporary - should come from auth middleware
-	if userID == "" {
+	// Get authenticated user ID from JWT middleware
+	authenticatedUserID := c.Locals("userID")
+	if authenticatedUserID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
 			Success: false,
 			Error:   "Authentication required",
 		})
 	}
+	
+	userID := authenticatedUserID.(string)
 	
 	chats, err := h.messageService.GetActiveChats(c.Context(), userID)
 	if err != nil {
@@ -148,14 +158,16 @@ func (h *MessageHandler) GetActiveChats(c *fiber.Ctx) error {
 
 // MarkAsRead handles marking messages as read
 func (h *MessageHandler) MarkAsRead(c *fiber.Ctx) error {
-	// TODO: Get user ID from JWT token
-	userID := c.Get("X-User-ID") // Temporary - should come from auth middleware
-	if userID == "" {
+	// Get authenticated user ID from JWT middleware
+	authenticatedUserID := c.Locals("userID")
+	if authenticatedUserID == nil {
 		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
 			Success: false,
 			Error:   "Authentication required",
 		})
 	}
+	
+	userID := authenticatedUserID.(string)
 	
 	var req struct {
 		OtherUserID string `json:"other_user_id" validate:"required"`

@@ -66,7 +66,7 @@ type Item struct {
 	Price       float64   `json:"price" db:"price" validate:"required,gt=0"`
 	Location    string    `json:"location" db:"location" validate:"required"`
 	Year        *int      `json:"year" db:"year"`
-	Condition   string    `json:"condition" db:"condition" validate:"required,oneof=New Like\ New Good Fair Poor"`
+	Condition   string    `json:"condition" db:"condition" validate:"required,oneof=New Like New Good Fair Poor"`
 	CategoryID  *string   `json:"category_id" db:"category_id"`
 	Images      []string  `json:"images" db:"images"`
 	Views       int       `json:"views" db:"views"`
@@ -90,9 +90,9 @@ type CreateItemRequest struct {
 	Title       string   `json:"title" validate:"required,min=3,max=100"`
 	Description string   `json:"description" validate:"required,min=10,max=1000"`
 	Price       float64  `json:"price" validate:"required,gt=0"`
-	Location    string   `json:"location" validate:"required"`
-	Condition   string   `json:"condition" validate:"required,oneof=New Like\ New Good Fair Poor"`
-	Category    string   `json:"category"`
+	Location    string   `json:"location" validate:"required,min=3,max=200"`
+	Condition   string   `json:"condition" validate:"required,oneof=New Like New Good Fair Poor"`
+	Category    string   `json:"category" validate:"max=50"`
 	Images      []string `json:"images"`
 	SellerID    string   `json:"seller_id" validate:"required"`
 	IsAvailable *bool    `json:"is_available"`

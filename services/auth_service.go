@@ -32,39 +32,31 @@ func (s *AuthService) ValidateSRN(srn string) bool {
 	return srnPattern.MatchString(strings.ToUpper(srn))
 }
 
-// SanitizeInput sanitizes user input with comprehensive security checks
-func (s *AuthService) SanitizeInput(input string) string {
-	// Remove potential XSS and injection characters
-	sanitized := strings.TrimSpace(input)
-	sanitized = strings.ReplaceAll(sanitized, "<", "")
-	sanitized = strings.ReplaceAll(sanitized, ">", "")
-	sanitized = strings.ReplaceAll(sanitized, "'", "")
-	sanitized = strings.ReplaceAll(sanitized, "\"", "")
-	sanitized = strings.ReplaceAll(sanitized, ";", "")
-	sanitized = strings.ReplaceAll(sanitized, "--", "")
-	
-	// Limit length for security
-	if len(sanitized) > 50 { // Reduced from 100 for usernames/passwords
-		sanitized = sanitized[:50]
-	}
-	
-	return sanitized
-}
-
 // AuthenticateWithPESU authenticates user with PESU API
 func (s *AuthService) AuthenticateWithPESU(ctx context.Context, req *models.PESUAuthRequest) (*models.User, error) {
-	// Validate and sanitize input
+	// Validate SRN format
 	if !s.ValidateSRN(req.Username) {
 		return nil, fmt.Errorf("invalid SRN format")
 	}
 	
-	sanitizedUsername := s.SanitizeInput(req.Username)
-	sanitizedPassword := s.SanitizeInput(req.Password)
+	// Basic input validation - trim whitespace but don't remove valid characters
+	username := strings.TrimSpace(req.Username)
+	password := strings.TrimSpace(req.Password)
+	
+	// Check for empty inputs
+	if username == "" || password == "" {
+		return nil, fmt.Errorf("username and password are required")
+	}
+	
+	// Limit length for security (reasonable limits)
+	if len(username) > 20 || len(password) > 128 {
+		return nil, fmt.Errorf("input length exceeds maximum allowed")
+	}
 	
 	// Prepare request to PESU API
 	authReq := map[string]interface{}{
-		"username": strings.ToUpper(sanitizedUsername),
-		"password": sanitizedPassword,
+		"username": strings.ToUpper(username),
+		"password": password,
 		"profile":  true,
 	}
 	

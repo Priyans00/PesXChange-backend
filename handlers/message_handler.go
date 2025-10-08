@@ -101,13 +101,14 @@ func (h *MessageHandler) GetMessages(c *fiber.Ctx) error {
 	otherUserID := c.Query("other_user_id")
 	itemID := c.Query("item_id")
 	
-	if otherUserID == "" || itemID == "" {
+	if otherUserID == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
 			Success: false,
-			Error:   "other_user_id and item_id are required",
+			Error:   "other_user_id is required",
 		})
 	}
 	
+	// item_id is now optional - if not provided, get all messages between users
 	limit, offset := middleware.ParsePagination(c)
 	
 	messages, err := h.messageService.GetMessages(c.Context(), userID, otherUserID, itemID, limit, offset)

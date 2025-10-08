@@ -104,6 +104,7 @@ type Message struct {
 	ID         string    `json:"id" db:"id"`
 	SenderID   string    `json:"sender_id" db:"sender_id"`
 	ReceiverID string    `json:"receiver_id" db:"receiver_id"`
+	ItemID     *string   `json:"item_id,omitempty" db:"item_id"` // Optional for direct messaging
 	Message    string    `json:"message" db:"message" validate:"required,min=1,max=1000"`
 	IsRead     bool      `json:"is_read" db:"is_read"`
 	CreatedAt  time.Time `json:"created_at" db:"created_at"`
@@ -121,6 +122,7 @@ type Message struct {
 // SendMessageRequest represents message sending request - matches Node.js API
 type SendMessageRequest struct {
 	ReceiverID string `json:"receiver_id" validate:"required"`
+	ItemID     string `json:"item_id"` // Optional for direct messaging
 	Message    string `json:"message" validate:"required,min=1,max=1000"`
 }
 

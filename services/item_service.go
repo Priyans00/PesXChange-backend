@@ -93,12 +93,8 @@ func (s *ItemService) processItemImages(items []models.Item) {
 		for j := 0; j < maxImages; j++ {
 			img := items[i].Images[j]
 			
-			// If it's a base64 image, it should have been converted to Supabase Storage URL
-			// during item creation. If we still find base64, it's legacy data that needs migration
+			// Skip large base64 images to prevent huge responses (legacy data)
 			if len(img) > 500 && strings.HasPrefix(img, "data:image/") {
-				// Log for migration - in production you'd want to convert these
-				fmt.Printf("Found legacy base64 image for item %s, index %d - needs migration\n", items[i].ID, j)
-				// For now, skip large base64 images to prevent huge responses
 				continue
 			} else {
 				// Keep URLs and small images as is
@@ -115,7 +111,7 @@ func (s *ItemService) processItemImages(items []models.Item) {
 func (s *ItemService) GetItems(ctx context.Context, limit, offset int, filters map[string]interface{}) ([]models.Item, int, error) {
 	client := database.GetClient()
 	
-	// Select only necessary fields for listing to improve performance
+	// Select fields - cannot directly join with user_profile, will fetch seller info separately if needed
 	query := client.From("items").Select("id,title,description,price,location,condition,seller_id,images,category,created_at,updated_at,is_available,views", "exact", false)
 	
 	// Apply search filter
@@ -240,10 +236,11 @@ func (s *ItemService) GetItems(ctx context.Context, limit, offset int, filters m
 	return items, totalCount, nil
 }
 
-// GetItemByID retrieves a single item by ID
+// GetItemByID retrieves a single item by ID with seller information
 func (s *ItemService) GetItemByID(ctx context.Context, itemID string) (*models.Item, error) {
 	client := database.GetClient()
 	
+	// Fetch item
 	var items []models.Item
 	data, _, err := client.From("items").
 		Select("*", "exact", false).
@@ -262,14 +259,67 @@ func (s *ItemService) GetItemByID(ctx context.Context, itemID string) (*models.I
 		return nil, fmt.Errorf("item not found")
 	}
 	
-	// Add backward compatibility mapping
 	item := &items[0]
-	item.ImageURLs = item.Images // Map images to image_urls for frontend compatibility
+	
+	// Fetch seller information separately
+	if item.SellerID != "" {
+		var sellers []models.User
+		sellerData, _, err := client.From("user_profiles").
+			Select("id, nickname, name, email, avatar_url, rating, location, created_at", "exact", false).
+			Eq("id", item.SellerID).
+			Execute()
+		
+		if err == nil && len(sellerData) > 0 {
+			if err := json.Unmarshal(sellerData, &sellers); err == nil && len(sellers) > 0 {
+				item.Seller = &sellers[0]
+			}
+		}
+	}
+	
+	// Add backward compatibility mapping
+	item.ImageURLs = item.Images
 	if item.Category != "" {
-		item.Categories = []string{item.Category} // Map category to categories array
+		item.Categories = []string{item.Category}
 	}
 	
 	return item, nil
+}
+
+// IncrementViews increments the view count for an item
+func (s *ItemService) IncrementViews(ctx context.Context, itemID string) error {
+	client := database.GetClient()
+	
+	// Get current views count
+	var items []models.Item
+	data, _, err := client.From("items").
+		Select("views", "exact", false).
+		Eq("id", itemID).
+		Execute()
+	
+	if err != nil {
+		return fmt.Errorf("failed to get item views: %w", err)
+	}
+	
+	if err := json.Unmarshal(data, &items); err != nil || len(items) == 0 {
+		return fmt.Errorf("item not found")
+	}
+	
+	// Increment views
+	newViews := items[0].Views + 1
+	updates := map[string]interface{}{
+		"views": newViews,
+	}
+	
+	_, _, err = client.From("items").
+		Update(updates, "", "").
+		Eq("id", itemID).
+		Execute()
+	
+	if err != nil {
+		return fmt.Errorf("failed to increment views: %w", err)
+	}
+	
+	return nil
 }
 
 // UpdateItem updates an existing item
@@ -347,6 +397,24 @@ func (s *ItemService) GetItemsBySeller(ctx context.Context, sellerID string, lim
 	
 	if err := json.Unmarshal(data, &items); err != nil {
 		return nil, fmt.Errorf("failed to parse seller items: %w", err)
+	}
+	
+	// Fetch seller information once for all items (they all have the same seller)
+	if len(items) > 0 && sellerID != "" {
+		var sellers []models.User
+		sellerData, _, err := client.From("user_profiles").
+			Select("id, nickname, name, avatar_url, rating", "exact", false).
+			Eq("id", sellerID).
+			Execute()
+		
+		if err == nil && len(sellerData) > 0 {
+			if err := json.Unmarshal(sellerData, &sellers); err == nil && len(sellers) > 0 {
+				// Attach seller info to all items
+				for i := range items {
+					items[i].Seller = &sellers[0]
+				}
+			}
+		}
 	}
 	
 	// Process images to prevent huge responses

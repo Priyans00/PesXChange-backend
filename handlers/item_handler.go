@@ -36,6 +36,11 @@ func (h *ItemHandler) CreateItem(c *fiber.Ctx) error {
 		})
 	}
 	
+	// Set default location if not provided or too short
+	if len(strings.TrimSpace(req.Location)) < 3 {
+		req.Location = "PES University, Bangalore"
+	}
+	
 	// Validate request
 	if err := h.validator.Struct(&req); err != nil {
 		// Create more user-friendly error messages
@@ -176,6 +181,11 @@ func (h *ItemHandler) GetItem(c *fiber.Ctx) error {
 			Error:   "Item ID is required",
 		})
 	}
+	
+	// Increment view count asynchronously (don't wait for it)
+	go func() {
+		_ = h.itemService.IncrementViews(c.Context(), itemID)
+	}()
 	
 	item, err := h.itemService.GetItemByID(c.Context(), itemID)
 	if err != nil {

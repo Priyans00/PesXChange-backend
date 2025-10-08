@@ -309,22 +309,7 @@ func getExtensionFromContentType(contentType string) (string, error) {
 	return ext, nil
 }
 
-// isValidImageType is kept for backward compatibility but deprecated
-// Use validateImageFile instead for better security
-func isValidImageType(contentType string) bool {
-	validTypes := []string{
-		"image/jpeg",
-		"image/png",
-		"image/webp",
-	}
-	
-	for _, validType := range validTypes {
-		if contentType == validType {
-			return true
-		}
-	}
-	return false
-}// uploadToSupabase uploads a file to Supabase Storage with proper content-type
+// uploadToSupabase uploads a file to Supabase Storage with proper content-type
 // This bypasses the SDK's UploadFile which doesn't set content-type correctly
 func uploadToSupabase(client *supabase.Client, bucket, filename string, data []byte, contentType string) error {
 	// Create multipart form

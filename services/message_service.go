@@ -92,7 +92,7 @@ func (s *MessageService) GetMessages(ctx context.Context, userID, otherUserID, i
 	
 	query := client.From("messages").
 		Select("*", "exact", false).
-		Or(fmt.Sprintf("sender_id.eq.%s,receiver_id.eq.%s", userID, otherUserID), "").
+		Or(fmt.Sprintf("and(sender_id.eq.%s,receiver_id.eq.%s),and(sender_id.eq.%s,receiver_id.eq.%s)", userID, otherUserID, otherUserID, userID), "").
 		Order("created_at", nil)
 	
 	// Only filter by item_id if provided

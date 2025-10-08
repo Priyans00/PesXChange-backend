@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/base64"
 	"strconv"
 	"strings"
 
@@ -33,6 +34,11 @@ func (h *ItemHandler) CreateItem(c *fiber.Ctx) error {
 			Success: false,
 			Error:   "Invalid request body",
 		})
+	}
+	
+	// Set default location if not provided or too short
+	if len(strings.TrimSpace(req.Location)) < 3 {
+		req.Location = "PES University, Bangalore"
 	}
 	
 	// Validate request
@@ -175,6 +181,11 @@ func (h *ItemHandler) GetItem(c *fiber.Ctx) error {
 			Error:   "Item ID is required",
 		})
 	}
+	
+	// Increment view count asynchronously (don't wait for it)
+	go func() {
+		_ = h.itemService.IncrementViews(c.Context(), itemID)
+	}()
 	
 	item, err := h.itemService.GetItemByID(c.Context(), itemID)
 	if err != nil {
@@ -362,18 +373,19 @@ func (h *ItemHandler) GetItemImage(c *fiber.Ctx) error {
 			contentType = "image/jpeg" // default
 		}
 		
-		// For now, return a placeholder response since serving large base64 images directly
-		// is not recommended. In production, you should store images in file storage.
-		return c.Status(fiber.StatusOK).JSON(models.APIResponse{
-			Success: true,
-			Data: map[string]interface{}{
-				"message": "Image data available but too large for direct serving",
-				"item_id": itemID,
-				"index": idx,
-				"type": contentType,
-				"size": len(imageData),
-			},
-		})
+		// Decode base64 data
+		data, err := base64.StdEncoding.DecodeString(parts[1])
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(models.APIResponse{
+				Success: false,
+				Error:   "Failed to decode image data",
+			})
+		}
+		
+		// Set proper headers and serve the image
+		c.Set("Content-Type", contentType)
+		c.Set("Cache-Control", "public, max-age=86400") // Cache for 24 hours
+		return c.Send(data)
 	}
 	
 	// If it's already a URL, redirect to it

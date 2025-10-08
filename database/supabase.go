@@ -11,13 +11,15 @@ import (
 )
 
 var (
-	Client *supabase.Client
+	Client        *supabase.Client
+	ServiceClient *supabase.Client // Client with service key for storage operations
 )
 
 // Initialize sets up the Supabase client
 func Initialize(cfg *config.Config) error {
 	var err error
 	
+	// Initialize regular client with anon key
 	Client, err = supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseAnonKey, &supabase.ClientOptions{
 		Headers: map[string]string{
 			"apikey": cfg.SupabaseAnonKey,
@@ -26,6 +28,23 @@ func Initialize(cfg *config.Config) error {
 	
 	if err != nil {
 		return err
+	}
+
+	// Initialize service client with service key for storage operations
+	if cfg.SupabaseServiceKey != "" {
+		ServiceClient, err = supabase.NewClient(cfg.SupabaseURL, cfg.SupabaseServiceKey, &supabase.ClientOptions{
+			Headers: map[string]string{
+				"apikey": cfg.SupabaseServiceKey,
+			},
+		})
+		
+		if err != nil {
+			log.Printf("Warning: Failed to initialize service client: %v", err)
+			ServiceClient = Client // Fallback to regular client
+		}
+	} else {
+		log.Println("Warning: SUPABASE_SERVICE_KEY not set, using anon key for storage operations")
+		ServiceClient = Client // Use anon key client
 	}
 
 	// Only log in development
@@ -37,6 +56,15 @@ func Initialize(cfg *config.Config) error {
 
 // GetClient returns the initialized Supabase client
 func GetClient() *supabase.Client {
+	return Client
+}
+
+// GetStorageClient returns the service client for storage operations
+// Falls back to regular client if service client is not available
+func GetStorageClient() *supabase.Client {
+	if ServiceClient != nil {
+		return ServiceClient
+	}
 	return Client
 }
 

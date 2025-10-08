@@ -54,6 +54,7 @@ func SetupProfileRoutes(api fiber.Router) {
 func SetupItemRoutes(api fiber.Router) {
 	itemService := services.NewItemService()
 	itemHandler := handlers.NewItemHandler(itemService)
+	imageHandler := handlers.NewImageHandler()
 
 	items := api.Group("/items")
 	
@@ -67,6 +68,10 @@ func SetupItemRoutes(api fiber.Router) {
 	items.Post("/", middleware.JWTAuth(), middleware.ValidateJSON(), itemHandler.CreateItem)           // Create new item
 	items.Put("/:id", middleware.JWTAuth(), middleware.ValidateJSON(), itemHandler.UpdateItem)        // Update item
 	items.Delete("/:id", middleware.JWTAuth(), itemHandler.DeleteItem)                                // Delete item
+	
+	// Image management routes
+	items.Post("/upload-images", middleware.JWTAuth(), imageHandler.UploadImage)                      // Upload images to Supabase Storage
+	items.Post("/convert-images", middleware.JWTAuth(), middleware.ValidateJSON(), imageHandler.ConvertBase64ToStorage) // Convert base64 to storage URLs
 }
 
 func SetupMessageRoutes(api fiber.Router) {

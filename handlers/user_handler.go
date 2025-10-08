@@ -66,6 +66,24 @@ func (h *UserHandler) UpdateProfile(c *fiber.Ctx) error {
 		})
 	}
 	
+	// Get authenticated user ID from JWT middleware
+	authenticatedUserID := c.Locals("userID")
+	if authenticatedUserID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(models.APIResponse{
+			Success: false,
+			Error:   "Authentication required",
+		})
+	}
+	
+	// Ensure user can only update their own profile
+	authUserID := authenticatedUserID.(string)
+	if authUserID != userID {
+		return c.Status(fiber.StatusForbidden).JSON(models.APIResponse{
+			Success: false,
+			Error:   "You can only update your own profile",
+		})
+	}
+	
 	var updates map[string]interface{}
 	if err := c.BodyParser(&updates); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(models.APIResponse{
